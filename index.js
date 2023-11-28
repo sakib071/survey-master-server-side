@@ -29,6 +29,7 @@ async function run() {
 
         const userCollection = client.db("surveyMaster").collection("users");
         const surveyCollection = client.db("surveyMaster").collection("surveys");
+        const testimonialCollection = client.db("surveyMaster").collection("testimonials");
 
         //jwt related API
         app.post('/jwt', async (req, res) => {
@@ -123,12 +124,12 @@ async function run() {
             res.send(result);
         })
 
-        // app.get('/menu/:id', async (req, res) => {
-        //     const id = req.params.id;
-        //     const query = { _id: new ObjectId(id) }
-        //     const result = await surveyCollection.findOne(query);
-        //     res.send(result);
-        // })
+        app.get('/surveys/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) }
+            const result = await surveyCollection.findOne(query);
+            res.send(result);
+        })
 
         // app.post('/menu', verifyToken, verifyAdmin, async (req, res) => {
         //     const item = req.body;
@@ -161,10 +162,10 @@ async function run() {
         //     res.send(result);
         // })
 
-        // app.get("/reviews", async (req, res) => {
-        //     const result = await reviewCollection.find().toArray();
-        //     res.send(result);
-        // })
+        app.get("/testimonials", async (req, res) => {
+            const result = await testimonialCollection.find().toArray();
+            res.send(result);
+        })
 
         // app.get("/carts", async (req, res) => {
         //     const email = req.query.email;
