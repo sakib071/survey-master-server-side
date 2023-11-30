@@ -70,9 +70,18 @@ async function run() {
         }
 
         //users related API
-        app.get("/users", verifyToken, async (req, res) => {
-            const result = await userCollection.find().toArray();
-            res.send(result);
+        app.get("/users", async (req, res) => {
+            const userEmail = req.query.email;
+
+            if (userEmail) {
+                // If email is provided, fetch a specific user
+                const result = await userCollection.findOne({ email: userEmail });
+                res.send(result);
+            } else {
+                // If no email is provided, fetch all users
+                const result = await userCollection.find().toArray();
+                res.send(result);
+            }
         });
 
         app.get('/users/admin/:email', verifyToken, async (req, res) => {
@@ -100,6 +109,7 @@ async function run() {
                 return res.send({ message: 'User already exists', insertedId: null })
             }
             const result = await userCollection.insertOne(user);
+            console.log(result);
             res.send(result);
         })
 
@@ -135,6 +145,13 @@ async function run() {
             const result = await surveyCollection.findOne(query);
             res.send(result);
         })
+
+        app.post('/surveys', async (req, res) => {
+            const item = req.body;
+            const result = await surveyCollection.insertOne(item);
+            res.send(result);
+        });
+
 
         app.post('/votes', async (req, res) => {
             const item = req.body;
@@ -227,70 +244,57 @@ async function run() {
         app.get('/admin-stats', verifyToken, verifyAdmin, async (req, res) => {
             const users = await userCollection.estimatedDocumentCount();
             const votes = await voteCollection.estimatedDocumentCount();
-            const payment = await paymentCollection.estimatedDocumentCount();
-
-            // this is not the best way
-            // const payments = await paymentCollection.find().toArray();
-            // const revenue = payments.reduce((total, payment) => total + payment.price, 0);
-
-            const result = await paymentCollection.aggregate([
-                {
-                    $group: {
-                        _id: null,
-                        totalRevenue: {
-                            $sum: '$price'
-                        }
-                    }
-                }
-            ]).toArray();
-
-            const revenue = result.length > 0 ? result[0].totalRevenue : 0;
+            const survey = await surveyCollection.estimatedDocumentCount();
 
             res.send({
                 users,
                 votes,
-                payment,
-                revenue
+                survey
             })
         })
 
         // using aggregate pipeline
-        app.get('/order-stats', verifyToken, verifyAdmin, async (req, res) => {
-            const result = await paymentCollection.aggregate([
-                {
-                    $unwind: '$menuItemIds'
-                },
-                {
-                    $lookup: {
-                        from: 'menu',
-                        localField: 'menuItemIds',
-                        foreignField: '_id',
-                        as: 'menuItems'
+        app.get('/survey-stats', verifyToken, verifyAdmin, async (req, res) => {
+            try {
+                const result = await surveyCollection.aggregate([
+                    {
+                        $unwind: '$options'
+                    },
+                    {
+                        $lookup: {
+                            from: 'votes',
+                            localField: 'options',
+                            foreignField: '_id',
+                            as: 'votes'
+                        }
+                    },
+                    {
+                        $unwind: '$votes'
+                    },
+                    {
+                        $group: {
+                            _id: '$category',
+                            quantity: { $sum: 1 },
+                            votes: { $sum: 1 }
+                        }
+                    },
+                    {
+                        $project: {
+                            _id: 0,
+                            category: '$_id',
+                            quantity: '$quantity',
+                            votes: '$votes'
+                        }
                     }
-                },
-                {
-                    $unwind: '$menuItems'
-                },
-                {
-                    $group: {
-                        _id: '$menuItems.category',
-                        quantity: { $sum: 1 },
-                        revenue: { $sum: '$menuItems.price' }
-                    }
-                },
-                {
-                    $project: {
-                        _id: 0,
-                        category: '$_id',
-                        quantity: '$quantity',
-                        revenue: '$revenue'
-                    }
-                }
-            ]).toArray();
+                ]).toArray();
 
-            res.send(result);
+                res.send(result);
+            } catch (error) {
+                console.error("Error fetching survey stats:", error);
+                res.status(500).send({ error: 'Internal Server Error' });
+            }
+        });
 
-        })
 
 
         // Send a ping to confirm a successful connection
