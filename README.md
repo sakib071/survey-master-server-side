@@ -1,6 +1,6 @@
 # Survey Master
 
-[![Live link](survey-master-fe443.web.app)]survey-master-fe443.web.app)
+[Link link](https://survey-master-fe443.web.app/)
 
 ### Features:
 
